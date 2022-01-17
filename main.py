@@ -1,5 +1,6 @@
 
 import os
+from tabnanny import check
 import numpy as np
 
 import torch
@@ -131,7 +132,29 @@ def train(input_config, output_config, model_config):
             'model': model.state_dict(),
             'optimizer': optimizer.state_dict(),
             'scheduler': scheduler.state_dict(),
-            }, "./models")
+            }, "./models/model.pt")
+
+def load_model(input_config, output_config, model_config):
+
+    ic, oc, mc = input_config, output_config, model_config
+    scheduler_step = 100
+    scheduler_gamma = 0.5
+
+    # Load Fourier_Net2D, optimizer, and scheduler
+    model = Fourier_Net2D(mc["modes_fourier"], mc["modes_fourier"], mc["width_fourier"])
+    optimizer = torch.optim.Adam(model.parameters(), lr = 0.01)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=scheduler_step, gamma=scheduler_gamma)
+
+    # Load checkpoint file
+    checkpoint = torch.load("./models/model.pt")
+
+    # Load state dictionaries
+    model.load_state_dict(checkpoint["model"])
+    optimizer.load_state_dict(checkpoint["optimizer"])
+    scheduler.load_state_dict(checkpoint["scheduler"])
+
+    return model, optimizer, scheduler
+
 
 if __name__ == "__main__":
     train(input_config, output_config, model_config)
