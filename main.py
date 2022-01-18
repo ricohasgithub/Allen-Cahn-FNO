@@ -163,26 +163,27 @@ def eval_model(model, test_batch):
         test_batch = torch.Tensor(test_batch)
 
         H, W = test_batch.shape[-2], test_batch.shape[-1]
-        steps = test_batch.shape[0]
+        steps = test_batch.shape[1]
+        batch = test_batch.shape[0]
 
-        init = test_batch[0].view(1, 1, H, W)
+        init = test_batch[0].view(batch, 1, H, W)
 
         x_eval = model(init)
 
         evals = []
-        evals.append(np.array(x_eval.view(H, W).cpu().detach().numpy()))
+        evals.append(np.array(x_eval.view(batch, H, W).cpu().detach().numpy()))
 
-        for i in tqdm(range(1, len(test_batch))):
+        for i in tqdm(range(1, steps)):
             x_eval = model(x_eval)
-            evals.append(np.array(x_eval.view(H, W).cpu().detach().numpy()))
+            evals.append(np.array(x_eval.view(batch, H, W).cpu().detach().numpy()))
         
-        pred = np.array(evals)[:-1]
-        real = np.array(test_batch.cpu().detach().numpy()).reshape((len(test_batch), H, W))[1:]
-        
-        first = np.array(test_batch[0].view(1, H, W).cpu().detach().numpy())
-        
-        pred = np.concatenate((first, pred), axis = 0)
-        real = np.concatenate((first, real), axis = 0)
+        pred = np.array(evals)[:-1].transpose([1, 0, 2, 3])
+        real = np.array(test_batch.cpu().detach().numpy()).reshape((batch, steps, H, W))[:, 1:, :]
+
+        first = np.array(test_batch[:,0].view(batch, 1, H, W).cpu().detach().numpy())
+
+        pred = np.concatenate((first, pred), axis = 1)
+        real = np.concatenate((first, real), axis = 1)
         
     return pred, real
 
