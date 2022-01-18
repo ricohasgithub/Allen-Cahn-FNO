@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 import torch
 
-from utils import DataModule, eval_model, eval_model_batch
+from utils import DataModule, eval_model, eval_model_batch, make_simulation_gif, plot_phases
 from fourier_neural_operator import Fourier_Net2D
 
 # Model params
@@ -172,8 +172,16 @@ def eval_model_figs(model, data_module, results_dir):
 
         test_sim = test_sim[::skip]
         pred_sim, real_sim = eval_model(model, test_sim)
-
+        
+        # Generate figures
+        make_simulation_gif(pred_sim, real_sim, name, duration = 1, skip_time = skip)
+        plot_phases(pred_sim, real_sim, results_dir, index = i)
 
 if __name__ == "__main__":
+
+    # DataModule for evaluating test simulations
+    data_module = DataModule(input_config["data_dir"], max_data = input_config["max_data"])
+
     # train(input_config, output_config, model_config)
     model, optimizer, scheduler = load_model(input_config, output_config, model_config)
+    eval_model_figs(model, data_module, "./results")
