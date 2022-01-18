@@ -45,8 +45,6 @@ model_config = {
 def train(input_config, output_config, model_config):
 
     # Training constants
-    step = 1
-    batch_size = 20
     scheduler_step = 100
     scheduler_gamma = 0.5
 
@@ -55,9 +53,6 @@ def train(input_config, output_config, model_config):
 
     if name_experiment == None:
         name_experiment = "experiment_" + mc["name_model"]
-
-    results_dir = os.path.join(results_root_dir, name_experiment)
-    models_checkpoints_dir = os.path.join(logs_dir, "models_checkpoints")
 
     # Prepare training data
     data_module = DataModule(ic["data_dir"], max_data = ic["max_data"])
@@ -178,11 +173,8 @@ def eval_model(model, test_batch):
         evals.append(np.array(x_eval.view(H, W).cpu().detach().numpy()))
 
         for i in tqdm(range(1, len(test_batch))):
-            
             x_eval = model(x_eval)
-            
-            evals.append(np.array(x_eval.view(H, W).cpu().detach().numpy()) )
-            
+            evals.append(np.array(x_eval.view(H, W).cpu().detach().numpy()))
         
         pred = np.array(evals)[:-1]
         real = np.array(test_batch.cpu().detach().numpy()).reshape((len(test_batch), H, W))[1:]
