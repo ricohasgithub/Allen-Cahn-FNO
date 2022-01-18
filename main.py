@@ -1,15 +1,14 @@
 
 import os
+import numpy as np
+
 from re import S
 from tabnanny import check
 from tqdm import tqdm
 
-import numpy as np
-import matplotlib.pyplot as plt
-
 import torch
 
-from utils import DataModule
+from utils import DataModule, eval_model, eval_model_batch
 from fourier_neural_operator import Fourier_Net2D
 
 # Model params
@@ -154,39 +153,27 @@ def load_model(input_config, output_config, model_config):
 
     return model, optimizer, scheduler
 
-def eval_model(model, test_batch):
+def eval_model_figs(model, data_module, results_dir):
 
-    # Activate model eval time
-    model.eval()
+    # Create new directory from results path (if it doesn't exist)
+    try:
+        os.makedirs(results_dir)
+    except:
+        pass
 
-    with torch.no_grad():
-        test_batch = torch.Tensor(test_batch)
+    # Fetch attributes from DataModule instance
+    skip = data_module.skip_steps
 
-        H, W = test_batch.shape[-2], test_batch.shape[-1]
-        steps = test_batch.shape[1]
-        batch = test_batch.shape[0]
+    for i, test_sim in enumerate(data_module.test_simulations):
 
-        init = test_batch[0].view(batch, 1, H, W)
+        # Create output file name (for gif)
+        name = "sim_{}.gif".format(i)
+        name = os.path.join(results_dir, name)
 
-        x_eval = model(init)
+        test_sim = test_sim[::skip]
+        pred_sim, real_sim = eval_model(model, test_sim)
 
-        evals = []
-        evals.append(np.array(x_eval.view(batch, H, W).cpu().detach().numpy()))
-
-        for i in tqdm(range(1, steps)):
-            x_eval = model(x_eval)
-            evals.append(np.array(x_eval.view(batch, H, W).cpu().detach().numpy()))
-        
-        pred = np.array(evals)[:-1].transpose([1, 0, 2, 3])
-        real = np.array(test_batch.cpu().detach().numpy()).reshape((batch, steps, H, W))[:, 1:, :]
-
-        first = np.array(test_batch[:,0].view(batch, 1, H, W).cpu().detach().numpy())
-
-        pred = np.concatenate((first, pred), axis = 1)
-        real = np.concatenate((first, real), axis = 1)
-        
-    return pred, real
 
 if __name__ == "__main__":
     # train(input_config, output_config, model_config)
-    load_model(input_config, output_config, model_config)
+    model, optimizer, scheduler = load_model(input_config, output_config, model_config)

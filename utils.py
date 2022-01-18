@@ -1,11 +1,21 @@
 
 import os
+import io
+
 import numpy as np
+import imageio
 import skimage.transform
+import matplotlib.pyplot as plt
+
 from tqdm import tqdm
+from PIL import Image
 
 import torch
 from torch.utils.data import DataLoader, Dataset
+
+'''
+    Data loading classes
+'''
 
 class PairDataset(Dataset):
 
@@ -82,7 +92,7 @@ class DataModule():
 
         return data_files, data_arrays
 
-    def prepare_x_y(self, simulations , skip_steps = 10, store_steps_ahead = 5):
+    def prepare_x_y(self, simulations, skip_steps = 10, store_steps_ahead = 5):
 
         X = []
         Y = []
@@ -125,3 +135,176 @@ class DataModule():
         test_simulations.extend(extra_sims)
 
         return test_simulations
+
+'''
+    Model evaluation functions
+'''
+
+def eval_model_batch(model, test_batch):
+
+    # Activate model eval time
+    model.eval()
+
+    with torch.no_grad():
+        test_batch = torch.Tensor(test_batch)
+
+        H, W = test_batch.shape[-2], test_batch.shape[-1]
+        steps = test_batch.shape[1]
+        batch = test_batch.shape[0]
+
+        init = test_batch[0].view(batch, 1, H, W)
+
+        x_eval = model(init)
+
+        evals = []
+        evals.append(np.array(x_eval.view(batch, H, W).cpu().detach().numpy()))
+
+        for i in tqdm(range(1, steps)):
+            x_eval = model(x_eval)
+            evals.append(np.array(x_eval.view(batch, H, W).cpu().detach().numpy()))
+        
+        pred = np.array(evals)[:-1].transpose([1, 0, 2, 3])
+        real = np.array(test_batch.cpu().detach().numpy()).reshape((batch, steps, H, W))[:, 1:, :]
+
+        first = np.array(test_batch[:,0].view(batch, 1, H, W).cpu().detach().numpy())
+
+        pred = np.concatenate((first, pred), axis = 1)
+        real = np.concatenate((first, real), axis = 1)
+        
+    return pred, real
+
+def eval_model(model, test_batch):
+
+    # Activate model eval time
+    model.eval()
+
+    with torch.no_grad():
+        test_batch = torch.Tensor(test_batch)
+
+        H, W = test_batch.shape[-2], test_batch.shape[-1]
+        steps = test_batch.shape[0]
+
+        init = test_batch[0].view(1, 1, H, W)
+
+        x_eval = model(init)
+
+        evals = []
+        evals.append(np.array(x_eval.view(H, W).cpu().detach().numpy()))
+
+        for i in tqdm(range(1, len(test_batch))):
+            x_eval = model(x_eval)
+            evals.append(np.array(x_eval.view(H, W).cpu().detach().numpy()))
+        
+        pred = np.array(evals)[:-1]
+        real = np.array(test_batch.cpu().detach().numpy()).reshape((len(test_batch), H, W))[1:]
+        
+        first = np.array(test_batch[0].view(1, H, W).cpu().detach().numpy())
+        
+        pred = np.concatenate((first, pred), axis = 0)
+        real = np.concatenate((first, real), axis = 0)
+        
+    return pred, real
+
+'''
+    Animation and plotting
+'''
+
+def make_gif(list_ims, save_name, duration = 0.05, size = (200,200)):
+    
+    with imageio.get_writer(save_name,mode = "I", duration = duration) as writer:
+
+        for sol in list_ims:
+            s = sol
+            im = ( (s-np.min(s))*(255.0/(np.max(s)-np.min(s))) ).astype(np.uint8)
+            im = Image.fromarray(im).resize(size)
+            writer.append_data(np.array(im))
+
+    writer.close()
+
+def fig_to_array(fig):
+    
+    io_buf = io.BytesIO()
+    fig.savefig(io_buf, format='raw',quality = 95)
+    io_buf.seek(0)
+    img_arr = np.reshape(np.frombuffer(io_buf.getvalue(), dtype=np.uint8),
+                         newshape=(int(fig.bbox.bounds[3]), int(fig.bbox.bounds[2]), -1))
+    io_buf.close()
+    
+    return img_arr
+
+def make_simulation_gif(eval_sim, real_sim, name, duration = 1, skip_time = ""):
+    
+    assert np.shape(eval_sim) == np.shape(real_sim), "shapes_not equal"
+    
+    str_time = skip_time
+    
+    _max = np.max(real_sim)
+    _min = np.min(real_sim)
+    
+    arrays = []
+    for i in range(len(eval_sim)):
+        
+        if skip_time:
+        
+            str_time = "{} x dt".format(skip_time*i)
+            
+        im1 = eval_sim[i]
+        im2 = real_sim[i]
+        plt.close("all")
+        fig = plt.figure()
+        plt.subplot(121)
+        plt.title("Predicted {}".format(str_time),fontdict = {"fontsize":22})
+        o = plt.imshow(im1,cmap='gray', vmin=_min, vmax=_max)
+        plt.axis('off')
+        plt.subplot(122)
+        plt.title("Real {}".format(str_time),fontdict = {"fontsize":22})
+        o = plt.imshow(im2,cmap='gray', vmin=_min, vmax=_max)
+        plt.axis('off')
+        fig.tight_layout()
+        
+        array = fig_to_array(fig)
+        arrays.append(array)
+        
+    make_gif(arrays, name , duration = duration)
+
+def plot_phases(pred_sim, real_sim, results_dir, index = 0, epoch = "", name = None):
+    
+    try:
+        os.makedirs(results_dir)
+    except:
+        pass
+    
+    fig = plt.figure()
+    
+    plt.subplot(121)
+    means = [np.mean(np.abs(rs)) for rs in real_sim]
+    plt.plot(means, label = "real")
+
+    meansp = [np.mean(np.abs(ps)) for ps in pred_sim]
+    plt.plot(meansp, label = "pred")
+
+    plt.legend()
+
+    plt.title("abs mean phase")
+
+    plt.subplot(122)
+    means = [np.mean(rs) for rs in real_sim]
+    plt.plot(means, label = "real")
+
+    meansp = [np.mean(ps) for ps in pred_sim]
+    plt.plot(meansp, label = "pred")
+
+    plt.legend()
+
+    plt.title("abs  phase")
+    
+    if not(name):
+        _name = "epoch {}".format(epoch)
+        name = "{}_epoch_sim_{}_phases.png".format(epoch,index)
+    else:
+        _name = name
+        name_dir = name+".PNG"
+    fig.suptitle(_name)
+    fig.savefig(os.path.join(results_dir,name_dir))
+    
+    return fig
