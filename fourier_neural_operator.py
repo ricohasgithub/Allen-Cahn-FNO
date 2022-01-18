@@ -51,6 +51,7 @@ class SpectralConv2d_fast(nn.Module):
 
 
 class Fourier_Net2D(nn.Module):
+    
     def __init__(self, modes1, modes2, width, input_channel = 3):
 
         super(Fourier_Net2D, self).__init__()

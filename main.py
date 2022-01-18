@@ -1,7 +1,11 @@
 
 import os
+from re import S
 from tabnanny import check
+from tqdm import tqdm
+
 import numpy as np
+import matplotlib.pyplot as plt
 
 import torch
 
@@ -17,10 +21,10 @@ output_config = {
 }
 
 input_config = {
-    "skip_steps":6,
-    "max_data":None,
-    "data_dir":"./data/AC",
-    "gpus":-1,
+    "skip_steps": 6,
+    "max_data": None,
+    "data_dir": "./data/AC",
+    "gpus": -1,
 }
 
 model_config = {
@@ -33,7 +37,7 @@ model_config = {
     "layers_per_block": 3,
     "channels": 70,
     "name_model": "fourier",
-    "skip_con_weight":0.1,
+    "skip_con_weight": 0.1,
     "modes_fourier": 16,
     "width_fourier": 60,
 }
@@ -155,6 +159,41 @@ def load_model(input_config, output_config, model_config):
 
     return model, optimizer, scheduler
 
+def eval_model(model, test_batch):
+
+    # Activate model eval time
+    model.eval()
+
+    with torch.no_grad():
+        test_batch = torch.Tensor(test_batch)
+
+        H, W = test_batch.shape[-2], test_batch.shape[-1]
+        steps = test_batch.shape[0]
+
+        init = test_batch[0].view(1, 1, H, W)
+
+        x_eval = model(init)
+
+        evals = []
+        evals.append(np.array(x_eval.view(H, W).cpu().detach().numpy()))
+
+        for i in tqdm(range(1, len(test_batch))):
+            
+            x_eval = model(x_eval)
+            
+            evals.append(np.array(x_eval.view(H, W).cpu().detach().numpy()) )
+            
+        
+        pred = np.array(evals)[:-1]
+        real = np.array(test_batch.cpu().detach().numpy()).reshape((len(test_batch), H, W))[1:]
+        
+        first = np.array(test_batch[0].view(1, H, W).cpu().detach().numpy())
+        
+        pred = np.concatenate((first, pred), axis = 0)
+        real = np.concatenate((first, real), axis = 0)
+        
+    return pred, real
 
 if __name__ == "__main__":
-    train(input_config, output_config, model_config)
+    # train(input_config, output_config, model_config)
+    load_model(input_config, output_config, model_config)
