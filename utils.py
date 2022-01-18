@@ -296,15 +296,19 @@ def plot_phases(pred_sim, real_sim, results_dir, index = 0, epoch = "", name = N
 
     plt.legend()
 
-    plt.title("abs  phase")
+    plt.title("abs phase")
     
     if not(name):
         _name = "epoch {}".format(epoch)
-        name = "{}_epoch_sim_{}_phases.png".format(epoch,index)
+        name = "{}_epoch_sim_{}_phases.png".format(epoch, index)
     else:
         _name = name
-        name_dir = name+".PNG"
+        name_dir = name + ".PNG"
+
+    _name = name
+    name_dir = name + ".PNG"
+
     fig.suptitle(_name)
-    fig.savefig(os.path.join(results_dir,name_dir))
+    fig.savefig(os.path.join(results_dir, name_dir))
     
     return fig
