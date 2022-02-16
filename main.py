@@ -38,7 +38,7 @@ model_config = {
     "name_model": "fourier",
     "skip_con_weight": 0.1,
     "modes_fourier": 16,
-    "width_fourier": 60,
+    "width_fourier": 120,
 }
 
 def train(input_config, output_config, model_config):
@@ -182,6 +182,6 @@ if __name__ == "__main__":
     # DataModule for evaluating test simulations
     data_module = DataModule(input_config["data_dir"], max_data = input_config["max_data"])
 
-    # train(input_config, output_config, model_config)
+    train(input_config, output_config, model_config)
     model, optimizer, scheduler = load_model(input_config, output_config, model_config)
     eval_model_figs(model, data_module, "./results")
