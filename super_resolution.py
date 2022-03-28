@@ -27,7 +27,7 @@ ntest = 20
 
 sub = 1
 sub_t = 1
-S = 64
+S = 60
 T_in = 10
 T = 20
 
@@ -66,9 +66,8 @@ model_config = {
 }
 
 data_module = DataModule(input_config["data_dir"], max_data = input_config["max_data"])
-reader = torch.from_numpy(data_module.y_test)
-
-print(reader.shape)
+reader = torch.from_numpy(data_module.x_test)
+reader = torch.reshape(reader, (300, S, S, 1))
 
 # load data
 test_a = reader[:,::sub,::sub, 3:T_in*4:4]
@@ -80,7 +79,7 @@ print(test_a.shape, test_u.shape)
 S = S * (4//sub)
 T = T * (4//sub_t)
 
-test_a = test_a.reshape(ntest,S,S,1,T_in).repeat([1,1,1,T,1])
+test_a = test_a.reshape(ntest,S,S,1).repeat([1,1,1,T])
 
 gridx = torch.tensor(np.linspace(0, 1, S), dtype=torch.float)
 gridx = gridx.reshape(1, S, 1, 1, 1).repeat([1, 1, S, T, 1])
@@ -106,18 +105,39 @@ test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(test_a,
 myloss = torch.nn.L1Loss()
 pred = torch.zeros(test_u.shape)
 index = 0
-with torch.no_grad():
-    test_l2 = 0
-    for x, y in test_loader:
-        x, y = x, y
 
-        out = model(x)
-        pred[index] = out
-        loss = myloss(out.view(1, -1), y.view(1, -1)).item()
-        test_l2 += loss
-        print(index, loss)
-        index = index + 1
-print(test_l2/ntest)
+# Prepare training data
+data_module = DataModule(input_config["data_dir"], max_data = input_config["max_data"])
 
-path = 'eval'
-scipy.io.savemat('pred/'+path+'.mat', mdict={'pred': pred.cpu().numpy(), 'u': test_u.cpu().numpy()})
+# Build model and configure training devices
+model = Fourier_Net2D(model_config["modes_fourier"], model_config["modes_fourier"], model_config["width_fourier"])
+
+optimizer = torch.optim.Adam(model.parameters(), lr = 0.01)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.5)
+l1_loss = torch.nn.L1Loss()
+
+for epoch in range(model_config["max_epochs"]):
+
+    epoch_training_loss = []
+    epoch_validation_loss = []
+
+    # Validation
+    with torch.no_grad():
+
+        for i, batch in enumerate(data_module.val_dataloader):
+
+            Xb, Ystep1, Ystep2, Ystep3, Ystep4 = batch["X"], batch["Y"][:,0,:,:,:], batch["Y"][:,1,:,:,:], batch["Y"][:,2,:,:,:], batch["Y"][:,2,:,:,:]
+            Ypred1 = model(Xb)
+            Ypred2 = model(Ypred1)
+            Ypred3 = model(Ypred2)
+            Ypred4 = model(Ypred3)
+
+            val_loss1 = l1_loss(Ypred1, Ystep1)
+            val_loss2 = l1_loss(Ypred2, Ystep2)
+            val_loss3 = l1_loss(Ypred3, Ystep3)
+            val_loss4 = l1_loss(Ypred4, Ystep4)
+
+            epoch_validation_loss.append([val_loss1, val_loss2, val_loss3, val_loss4])
+
+            if (val_loss1 < model.tol_next_step) and model.n_steps_ahead <= 2:
+                model.n_steps_ahead += 1
