@@ -126,6 +126,3 @@ with torch.no_grad():
         val_loss4 = l1_loss(Ypred4, Ystep4)
 
         validation_loss.append([val_loss1, val_loss2, val_loss3, val_loss4])
-
-        if (val_loss1 < model.tol_next_step) and model.n_steps_ahead <= 2:
-            model.n_steps_ahead += 1
