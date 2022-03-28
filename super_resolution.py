@@ -97,6 +97,7 @@ device = torch.device('cuda')
 
 # load model
 model = torch.load('models/model.pt')
+l1_loss = torch.nn.L1Loss()
 
 print(model.count_params())
 
@@ -105,16 +106,6 @@ test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(test_a,
 myloss = torch.nn.L1Loss()
 pred = torch.zeros(test_u.shape)
 index = 0
-
-# Prepare training data
-data_module = DataModule(input_config["data_dir"], max_data = input_config["max_data"])
-
-# Build model and configure training devices
-model = Fourier_Net2D(model_config["modes_fourier"], model_config["modes_fourier"], model_config["width_fourier"])
-
-optimizer = torch.optim.Adam(model.parameters(), lr = 0.01)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.5)
-l1_loss = torch.nn.L1Loss()
 
 validation_loss = []
 
