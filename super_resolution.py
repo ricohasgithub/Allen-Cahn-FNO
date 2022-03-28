@@ -116,28 +116,25 @@ optimizer = torch.optim.Adam(model.parameters(), lr = 0.01)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.5)
 l1_loss = torch.nn.L1Loss()
 
-for epoch in range(model_config["max_epochs"]):
+validation_loss = []
 
-    epoch_training_loss = []
-    epoch_validation_loss = []
+# Validation
+with torch.no_grad():
 
-    # Validation
-    with torch.no_grad():
+    for i, batch in enumerate(data_module.val_dataloader):
 
-        for i, batch in enumerate(data_module.val_dataloader):
+        Xb, Ystep1, Ystep2, Ystep3, Ystep4 = batch["X"], batch["Y"][:,0,:,:,:], batch["Y"][:,1,:,:,:], batch["Y"][:,2,:,:,:], batch["Y"][:,2,:,:,:]
+        Ypred1 = model(Xb)
+        Ypred2 = model(Ypred1)
+        Ypred3 = model(Ypred2)
+        Ypred4 = model(Ypred3)
 
-            Xb, Ystep1, Ystep2, Ystep3, Ystep4 = batch["X"], batch["Y"][:,0,:,:,:], batch["Y"][:,1,:,:,:], batch["Y"][:,2,:,:,:], batch["Y"][:,2,:,:,:]
-            Ypred1 = model(Xb)
-            Ypred2 = model(Ypred1)
-            Ypred3 = model(Ypred2)
-            Ypred4 = model(Ypred3)
+        val_loss1 = l1_loss(Ypred1, Ystep1)
+        val_loss2 = l1_loss(Ypred2, Ystep2)
+        val_loss3 = l1_loss(Ypred3, Ystep3)
+        val_loss4 = l1_loss(Ypred4, Ystep4)
 
-            val_loss1 = l1_loss(Ypred1, Ystep1)
-            val_loss2 = l1_loss(Ypred2, Ystep2)
-            val_loss3 = l1_loss(Ypred3, Ystep3)
-            val_loss4 = l1_loss(Ypred4, Ystep4)
+        validation_loss.append([val_loss1, val_loss2, val_loss3, val_loss4])
 
-            epoch_validation_loss.append([val_loss1, val_loss2, val_loss3, val_loss4])
-
-            if (val_loss1 < model.tol_next_step) and model.n_steps_ahead <= 2:
-                model.n_steps_ahead += 1
+        if (val_loss1 < model.tol_next_step) and model.n_steps_ahead <= 2:
+            model.n_steps_ahead += 1
