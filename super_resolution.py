@@ -65,47 +65,17 @@ model_config = {
     "width_fourier": 120,
 }
 
-data_module = DataModule(input_config["data_dir"], max_data = input_config["max_data"])
-reader = torch.from_numpy(data_module.x_test)
-reader = torch.reshape(reader, (300, S, S, 1))
+# Spatial super resolution resize tensor
+sub = 1
+S = 60 * (4//sub)
+resize_tensor = (S, S)
 
-# load data
-test_a = reader[:,::sub,::sub, 3:T_in*4:4]
-test_u = reader[:,::sub,::sub, indent+T_in*4:indent+(T+T_in)*4:sub_t]
+data_module = DataModule(input_config["data_dir"], max_data = input_config["max_data"],
+                         resize=resize_tensor)
 
-print(test_a.shape, test_u.shape)
-
-# pad the location information (s,t)
-S = S * (4//sub)
-T = T * (4//sub_t)
-
-test_a = test_a.reshape(ntest,S,S,1).repeat([1,1,1,T])
-
-gridx = torch.tensor(np.linspace(0, 1, S), dtype=torch.float)
-gridx = gridx.reshape(1, S, 1, 1, 1).repeat([1, 1, S, T, 1])
-gridy = torch.tensor(np.linspace(0, 1, S), dtype=torch.float)
-gridy = gridy.reshape(1, 1, S, 1, 1).repeat([1, S, 1, T, 1])
-gridt = torch.tensor(np.linspace(0, 1, T+1)[1:], dtype=torch.float)
-gridt = gridt.reshape(1, 1, 1, T, 1).repeat([1, S, S, 1, 1])
-
-test_a = torch.cat((gridx.repeat([ntest,1,1,1,1]), gridy.repeat([ntest,1,1,1,1]),
-                       gridt.repeat([ntest,1,1,1,1]), test_a), dim=-1)
-
-t2 = default_timer()
-print('preprocessing finished, time used:', t2-t1)
-device = torch.device('cuda')
-
-# load model
+# Load model
 model = torch.load('models/model.pt')
 l1_loss = torch.nn.L1Loss()
-
-print(model.count_params())
-
-# test
-test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(test_a, test_u), batch_size=1, shuffle=False)
-myloss = torch.nn.L1Loss()
-pred = torch.zeros(test_u.shape)
-index = 0
 
 validation_loss = []
 

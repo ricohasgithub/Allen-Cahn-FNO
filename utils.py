@@ -34,7 +34,7 @@ class PairDataset(Dataset):
 class DataModule():
 
     def __init__(self, data_dir, resize=(60, 60), max_data=None, n_test_simulation=12, batch_size=50,
-                    skip_steps=10, store_steps_ahead=5, test_ratio=0.2):
+                    skip_steps=10, store_steps_ahead=5, test_ratio=0.2, space_res=False):
 
         # Set class attributes
         self.data_dir = data_dir
@@ -73,7 +73,6 @@ class DataModule():
 
         self.train_dataloader = DataLoader(self.train_dataset, batch_size = self.batch_size, shuffle = True)
         self.val_dataloader = DataLoader(self.test_dataset, batch_size = self.batch_size, shuffle = True)
-
 
     def load_data(self):
 
