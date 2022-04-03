@@ -62,7 +62,7 @@ model_config = {
     "name_model": "fourier",
     "skip_con_weight": 0.1,
     "modes_fourier": 16,
-    "width_fourier": 120,
+    "width_fourier": 60,
 }
 
 # Spatial super resolution resize tensor
@@ -70,6 +70,7 @@ sub = 1
 S = 60 * (4//sub)
 resize_tensor = (S, S)
 
+# Load and reshape data to fit new spatial resolution
 data_module = DataModule(input_config["data_dir"], max_data = input_config["max_data"],
                          resize=resize_tensor)
 

@@ -38,7 +38,7 @@ model_config = {
     "name_model": "fourier",
     "skip_con_weight": 0.1,
     "modes_fourier": 16,
-    "width_fourier": 120,
+    "width_fourier": 60,
 }
 
 def train(input_config, output_config, model_config):
