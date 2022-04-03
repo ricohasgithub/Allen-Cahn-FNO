@@ -74,7 +74,12 @@ data_module = DataModule(input_config["data_dir"], max_data = input_config["max_
                          resize=resize_tensor)
 
 # Load model
-model = torch.load('models/model.pt')
+model = Fourier_Net2D(model_config["modes_fourier"], model_config["modes_fourier"], model_config["width_fourier"])
+# Load checkpoint file
+checkpoint = torch.load("./models/model.pt")
+# Load state dictionaries
+model.load_state_dict(checkpoint["model"])
+
 l1_loss = torch.nn.L1Loss()
 
 validation_loss = []
